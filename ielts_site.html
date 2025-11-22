@@ -1,0 +1,832 @@
+<!-- 
+    APP: IELTS Master Hub v5.0
+    FOR: IT Specialist & Teacher
+    STATUS: Production Ready (Local)
+    FEATURES: Flashcards Game, Fixed Links, Hardcoded API
+-->
+<!DOCTYPE html>
+<html lang="ru" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IELTS Master Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        dark: { bg: '#0f172a', surface: '#1e293b', border: '#334155' },
+                        brand: { 500: '#6366f1', 600: '#4f46e5' }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['Fira Code', 'monospace']
+                    },
+                    animation: {
+                        'flip': 'flip 0.6s forwards'
+                    },
+                    keyframes: {
+                        flip: {
+                            '0%': { transform: 'rotateY(0)' },
+                            '100%': { transform: 'rotateY(180deg)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Fira+Code:wght@400;600&display=swap');
+        
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 3px; }
+        .dark ::-webkit-scrollbar-thumb { background: #475569; }
+        
+        .fade-in { animation: fadeIn 0.25s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .chat-bubble { max-width: 85%; padding: 12px 16px; border-radius: 12px; margin-bottom: 8px; font-size: 0.95rem; position: relative; }
+        .chat-bubble.user { background: #4f46e5; color: white; align-self: flex-end; border-bottom-right-radius: 2px; }
+        .chat-bubble.ai { background: #f1f5f9; color: #1e293b; align-self: flex-start; border-bottom-left-radius: 2px; border: 1px solid #e2e8f0; }
+        .dark .chat-bubble.ai { background: #334155; color: #e2e8f0; border-color: #475569; }
+
+        .loading-dots::after { content: ' .'; animation: dots 1s steps(5, end) infinite; }
+        @keyframes dots { 0%, 20% { opacity: 0; } 50% { opacity: 1; } 100% { opacity: 0; } }
+
+        /* Flashcard Styles */
+        .scene { perspective: 1000px; width: 100%; height: 300px; cursor: pointer; }
+        .card { width: 100%; height: 100%; transition: transform 0.6s; transform-style: preserve-3d; position: relative; }
+        .card.is-flipped { transform: rotateY(180deg); }
+        .card__face { position: absolute; width: 100%; height: 100%; -webkit-backface-visibility: hidden; backface-visibility: hidden; display: flex; flex-direction: column; justify-content: center; align-items: center; border-radius: 1.5rem; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); }
+        .card__face--front { background: white; }
+        .dark .card__face--front { background: #1e293b; }
+        .card__face--back { background: #4f46e5; color: white; transform: rotateY(180deg); }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-200 font-sans h-screen flex overflow-hidden transition-colors duration-200">
+
+    <!-- SIDEBAR -->
+    <aside class="w-72 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 flex-col hidden md:flex z-20 transition-colors duration-200">
+        <div class="p-6 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
+            <div>
+                <h1 class="text-xl font-black text-indigo-600 dark:text-indigo-400 tracking-tighter flex items-center gap-2">
+                    <i class="fas fa-layer-group"></i> IELTS.HUB
+                </h1>
+                <p class="text-[10px] text-slate-500 font-mono uppercase tracking-widest mt-1 ml-7">V5.0 • Teacher Ed.</p>
+            </div>
+        </div>
+        
+        <nav class="flex-1 overflow-y-auto p-4 space-y-1">
+            <button onclick="app.nav('dashboard')" class="nav-btn group w-full flex items-center gap-3 px-4 py-3 text-sm font-bold rounded-lg bg-indigo-50 text-indigo-700 dark:bg-slate-700 dark:text-indigo-300 transition-all">
+                <i class="fas fa-chart-pie w-5 text-center group-hover:scale-110 transition-transform"></i> Дашборд
+            </button>
+            
+            <div class="pt-6 pb-2 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                <span class="h-[1px] bg-slate-200 dark:bg-slate-700 flex-1"></span> Обучение <span class="h-[1px] bg-slate-200 dark:bg-slate-700 flex-1"></span>
+            </div>
+            
+            <button onclick="app.nav('topics')" class="nav-btn group w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-indigo-600 dark:hover:text-indigo-300 transition-all">
+                <i class="fas fa-list-check w-5 text-center group-hover:scale-110 transition-transform"></i> План (7 Мес.)
+            </button>
+            <button onclick="app.nav('dictionary')" class="nav-btn group w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-indigo-600 dark:hover:text-indigo-300 transition-all">
+                <i class="fas fa-book w-5 text-center group-hover:scale-110 transition-transform"></i> Словарь
+                <span id="sidebar-word-count" class="ml-auto text-[10px] bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded-md text-slate-600 dark:text-slate-300">0</span>
+            </button>
+            <button onclick="app.nav('flashcards')" class="nav-btn group w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-indigo-600 dark:hover:text-indigo-300 transition-all">
+                <i class="fas fa-clone w-5 text-center group-hover:scale-110 transition-transform"></i> Флеш-карточки <span class="text-[10px] text-white bg-red-500 px-1 rounded ml-1">NEW</span>
+            </button>
+            <button onclick="app.nav('tests')" class="nav-btn group w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-indigo-600 dark:hover:text-indigo-300 transition-all">
+                <i class="fas fa-pen-nib w-5 text-center group-hover:scale-110 transition-transform"></i> Тесты
+            </button>
+            
+            <div class="pt-6 pb-2 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                <span class="h-[1px] bg-slate-200 dark:bg-slate-700 flex-1"></span> Ресурсы <span class="h-[1px] bg-slate-200 dark:bg-slate-700 flex-1"></span>
+            </div>
+            
+            <button onclick="app.nav('ai_tutor')" class="nav-btn group w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-indigo-600 dark:hover:text-indigo-300 transition-all">
+                <i class="fas fa-robot w-5 text-center group-hover:scale-110 transition-transform"></i> ИИ Ассистент
+            </button>
+            <button onclick="app.nav('books')" class="nav-btn group w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-indigo-600 dark:hover:text-indigo-300 transition-all">
+                <i class="fas fa-folder-open w-5 text-center group-hover:scale-110 transition-transform"></i> Библиотека
+            </button>
+        </nav>
+
+        <div class="p-4 border-t border-slate-200 dark:border-slate-700">
+            <button onclick="app.toggleTheme()" class="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-slate-100 dark:bg-slate-700/50 hover:bg-slate-200 dark:hover:bg-slate-700 transition text-xs font-bold text-slate-600 dark:text-slate-300">
+                <i class="fas fa-adjust"></i> <span>Переключить тему</span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- MOBILE HEADER -->
+    <div class="md:hidden fixed top-0 w-full h-14 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 z-50 flex items-center justify-between px-4 transition-colors duration-200">
+        <span class="font-black text-indigo-600 dark:text-indigo-400 flex items-center gap-2"><i class="fas fa-layer-group"></i> IELTS.HUB</span>
+        <div class="flex gap-3">
+            <button onclick="app.toggleTheme()" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center"><i class="fas fa-moon dark:text-yellow-400 text-slate-500"></i></button>
+            <button onclick="document.getElementById('mob-menu').classList.toggle('hidden')" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center"><i class="fas fa-bars text-slate-500"></i></button>
+        </div>
+    </div>
+    <!-- MOBILE MENU -->
+    <div id="mob-menu" class="fixed inset-0 bg-slate-900/95 z-40 hidden md:hidden pt-20 px-6 space-y-6" onclick="this.classList.add('hidden')">
+        <button onclick="app.nav('dashboard')" class="flex items-center gap-4 w-full text-left text-white font-bold text-xl"><i class="fas fa-chart-pie w-6"></i> Дашборд</button>
+        <button onclick="app.nav('topics')" class="flex items-center gap-4 w-full text-left text-white font-bold text-xl"><i class="fas fa-list-check w-6"></i> План</button>
+        <button onclick="app.nav('flashcards')" class="flex items-center gap-4 w-full text-left text-white font-bold text-xl"><i class="fas fa-clone w-6"></i> Карточки</button>
+        <button onclick="app.nav('dictionary')" class="flex items-center gap-4 w-full text-left text-white font-bold text-xl"><i class="fas fa-book w-6"></i> Словарь</button>
+        <button onclick="app.nav('ai_tutor')" class="flex items-center gap-4 w-full text-left text-white font-bold text-xl"><i class="fas fa-robot w-6"></i> ИИ Чат</button>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 flex flex-col h-full pt-14 md:pt-0 relative overflow-hidden bg-slate-50 dark:bg-slate-900 transition-colors duration-200">
+        <div id="content-area" class="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth">
+            
+            <!-- DASHBOARD -->
+            <div id="view-dashboard" class="view-section fade-in">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                    <!-- Welcome Card -->
+                    <div class="lg:col-span-2 bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl p-8 text-white shadow-xl relative overflow-hidden group">
+                        <div class="relative z-10">
+                            <h2 class="text-3xl font-black mb-2 tracking-tight">Привет, Коллега! 👋</h2>
+                            <p class="text-indigo-100 text-sm mb-6 max-w-md font-medium opacity-90">
+                                Все системы в норме. API ключ активирован. Добавлен режим "Флеш-карточки" для заучивания слов.
+                            </p>
+                            <div class="flex gap-3 flex-wrap">
+                                <button onclick="app.nav('topics')" class="bg-white text-indigo-600 px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-indigo-50 hover:shadow-lg transition-all duration-200">
+                                    <i class="fas fa-play mr-2"></i> К плану
+                                </button>
+                                <button onclick="app.nav('flashcards')" class="bg-indigo-500/40 border border-indigo-400/30 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-indigo-500/60 backdrop-blur-md transition-all duration-200">
+                                    <i class="fas fa-clone mr-2"></i> Учить слова
+                                </button>
+                            </div>
+                        </div>
+                        <i class="fas fa-guitar absolute -bottom-6 -right-6 text-[10rem] text-white opacity-5 transform rotate-12 group-hover:rotate-6 group-hover:scale-105 transition-transform duration-500"></i>
+                    </div>
+                    
+                    <!-- Word Stat -->
+                    <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col justify-center items-center relative overflow-hidden">
+                        <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-green-400 to-emerald-500"></div>
+                        <div class="text-slate-400 dark:text-slate-500 text-xs font-bold uppercase tracking-widest mb-2">Словарный запас</div>
+                        <div class="text-5xl font-black text-slate-800 dark:text-white mb-1 tracking-tighter" id="stat-words">0</div>
+                        <div class="text-xs text-green-600 dark:text-green-400 font-bold bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded-full">
+                            <i class="fas fa-arrow-up mr-1"></i>Активный рост
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chart -->
+                <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-700">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="font-bold text-slate-700 dark:text-slate-200 flex items-center gap-2">
+                            <i class="fas fa-chart-area text-indigo-500"></i> Динамика изучения
+                        </h3>
+                        <span class="text-xs font-mono text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded">Target: 100%</span>
+                    </div>
+                    <div class="h-64 w-full"><canvas id="mainChart"></canvas></div>
+                </div>
+            </div>
+
+            <!-- TOPICS (PLAN) -->
+            <div id="view-topics" class="view-section hidden fade-in">
+                <div class="flex justify-between items-end mb-6 border-b border-slate-200 dark:border-slate-700 pb-4">
+                    <div>
+                        <h2 class="text-3xl font-black dark:text-white tracking-tight">Roadmap</h2>
+                        <p class="text-slate-500 dark:text-slate-400 text-sm mt-1">Стратегический план на 7 месяцев</p>
+                    </div>
+                    <div class="text-right hidden sm:block">
+                        <div class="text-xs font-bold text-slate-400 uppercase">Цель</div>
+                        <div class="font-mono font-bold text-indigo-600 dark:text-indigo-400 text-xl">IELTS 6.5+</div>
+                    </div>
+                </div>
+                <div id="topics-list" class="space-y-4 max-w-4xl mx-auto"></div>
+            </div>
+
+            <!-- FLASHCARDS (NEW GAME) -->
+            <div id="view-flashcards" class="view-section hidden fade-in">
+                <div class="max-w-2xl mx-auto text-center h-full flex flex-col justify-center">
+                    <h2 class="text-2xl font-bold mb-2 dark:text-white">Flashcards Mode</h2>
+                    <p class="text-slate-500 mb-8 text-sm">Нажми на карточку, чтобы перевернуть. Используй кнопки внизу.</p>
+                    
+                    <!-- Card Container -->
+                    <div class="scene mb-8">
+                        <div class="card" id="flashcard" onclick="app.flipCard()">
+                            <div class="card__face card__face--front border-2 border-slate-200 dark:border-slate-700">
+                                <div class="text-xs font-bold text-slate-400 uppercase mb-4 tracking-widest">Word</div>
+                                <h3 class="text-4xl font-black text-slate-800 dark:text-white" id="card-front">Ready?</h3>
+                                <p class="text-slate-400 mt-4 text-sm">Tap to flip</p>
+                            </div>
+                            <div class="card__face card__face--back bg-gradient-to-br from-indigo-600 to-purple-700">
+                                <div class="text-xs font-bold text-indigo-200 uppercase mb-4 tracking-widest">Meaning</div>
+                                <h3 class="text-3xl font-bold" id="card-back">Готов?</h3>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Controls -->
+                    <div class="flex justify-center gap-4">
+                        <button onclick="app.nextCard(false)" class="flex-1 py-4 rounded-xl bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50 font-bold transition">
+                            <i class="fas fa-times mr-2"></i> Не знаю
+                        </button>
+                        <button onclick="app.nextCard(true)" class="flex-1 py-4 rounded-xl bg-green-100 text-green-600 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50 font-bold transition">
+                            <i class="fas fa-check mr-2"></i> Знаю
+                        </button>
+                    </div>
+                    <div class="mt-6 text-slate-400 text-sm">
+                        Осталось в колоде: <span id="cards-left" class="font-mono font-bold text-indigo-500">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DICTIONARY -->
+            <div id="view-dictionary" class="view-section hidden fade-in">
+                <div class="sticky top-0 z-10 bg-slate-50 dark:bg-slate-900 pt-2 pb-6">
+                    <div class="flex flex-col md:flex-row gap-4">
+                        <div class="flex-1 relative group">
+                            <input type="text" id="word-input" class="w-full pl-11 pr-4 py-4 rounded-xl border-0 bg-white dark:bg-slate-800 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700 focus:ring-2 focus:ring-indigo-500 dark:text-white text-lg transition-all" placeholder="Добавить слово (English - Русский)..." onkeypress="if(event.key==='Enter') app.addWord()">
+                            <i class="fas fa-plus absolute left-4 top-5 text-slate-400 group-focus-within:text-indigo-500 transition-colors"></i>
+                        </div>
+                        <button onclick="app.addWord()" class="bg-indigo-600 text-white px-8 rounded-xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-500/20 transition-all active:scale-95">
+                            Сохранить
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-10" id="dict-grid"></div>
+            </div>
+
+            <!-- AI TUTOR -->
+            <div id="view-ai_tutor" class="view-section hidden h-full flex flex-col pb-2">
+                <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 flex-1 flex flex-col overflow-hidden">
+                    <!-- Chat Header -->
+                    <div class="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/80 backdrop-blur-sm flex justify-between items-center z-10">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg">
+                                <i class="fas fa-robot"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-sm dark:text-white">IELTS Personal Tutor</h3>
+                                <p class="text-[10px] text-slate-500 flex items-center gap-1">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span> Online • Gemini Pro
+                                </p>
+                            </div>
+                        </div>
+                        <button onclick="app.clearChat()" class="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </div>
+                    
+                    <!-- Chat Area -->
+                    <div id="chat-history" class="flex-1 p-6 overflow-y-auto bg-slate-50 dark:bg-slate-900/50 space-y-4 scroll-smooth">
+                        <div class="chat-bubble ai shadow-sm">
+                            <b>Привет, коллега!</b> 🎸<br><br>
+                            Я готов помочь с английским. API ключ уже настроен, так что просто пиши.<br>
+                            Можем разобрать сложные слова из твоих книг или потренировать Speaking Part 2.
+                        </div>
+                    </div>
+
+                    <!-- Input Area -->
+                    <div class="p-4 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700">
+                        <div class="relative group">
+                            <input type="text" id="chat-input" class="w-full bg-slate-100 dark:bg-slate-700 border-0 rounded-xl pl-5 pr-14 py-4 focus:ring-2 focus:ring-indigo-500 dark:text-white placeholder-slate-400 font-medium transition-all" placeholder="Напиши сообщение..." onkeypress="if(event.key==='Enter') app.sendMessage()">
+                            <button onclick="app.sendMessage()" class="absolute right-2 top-2 bottom-2 w-10 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center justify-center transition shadow-md active:scale-90">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BOOKS (FIXED LINKS) -->
+            <div id="view-books" class="view-section hidden fade-in">
+                <h2 class="text-2xl font-black mb-6 dark:text-white tracking-tight">Библиотека Материалов</h2>
+                <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
+                    <div class="grid grid-cols-1 divide-y divide-slate-100 dark:divide-slate-700">
+                        <!-- Item 1 -->
+                        <a href="books/english%20for%20everyone_1.pdf" target="_blank" class="p-5 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition flex items-center gap-4 group">
+                            <div class="w-12 h-12 rounded-lg bg-red-50 dark:bg-red-900/20 flex items-center justify-center text-red-500 group-hover:scale-110 transition-transform">
+                                <i class="fas fa-file-pdf text-xl"></i>
+                            </div>
+                            <div class="flex-1">
+                                <h4 class="font-bold text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 transition-colors">English for Everyone 1</h4>
+                                <p class="text-xs text-slate-500">Course Book • Beginner</p>
+                            </div>
+                            <i class="fas fa-external-link-alt text-slate-300 group-hover:text-indigo-500"></i>
+                        </a>
+                        <!-- Item 2 -->
+                        <a href="books/english_for_everyone_level_2_course_book_beginner.pdf" target="_blank" class="p-5 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition flex items-center gap-4 group">
+                            <div class="w-12 h-12 rounded-lg bg-red-50 dark:bg-red-900/20 flex items-center justify-center text-red-500 group-hover:scale-110 transition-transform">
+                                <i class="fas fa-file-pdf text-xl"></i>
+                            </div>
+                            <div class="flex-1">
+                                <h4 class="font-bold text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 transition-colors">English for Everyone Level 2</h4>
+                                <p class="text-xs text-slate-500">Course Book • Beginner A2</p>
+                            </div>
+                            <i class="fas fa-external-link-alt text-slate-300 group-hover:text-indigo-500"></i>
+                        </a>
+                        <!-- Item 3 -->
+                         <a href="books/english%20for%20IELTS%206+.pdf" target="_blank" class="p-5 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition flex items-center gap-4 group">
+                            <div class="w-12 h-12 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center text-indigo-500 group-hover:scale-110 transition-transform">
+                                <i class="fas fa-graduation-cap text-xl"></i>
+                            </div>
+                            <div class="flex-1">
+                                <h4 class="font-bold text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 transition-colors">English for IELTS 6+</h4>
+                                <p class="text-xs text-slate-500">Advanced Practice</p>
+                            </div>
+                            <i class="fas fa-external-link-alt text-slate-300 group-hover:text-indigo-500"></i>
+                        </a>
+                        <!-- Item 4 -->
+                        <a href="books/План%20подготовки%20к%20IELTS%206.0+%20за%207%20месяцев%20(с%20нуля).pdf" target="_blank" class="p-5 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition flex items-center gap-4 group">
+                            <div class="w-12 h-12 rounded-lg bg-green-50 dark:bg-green-900/20 flex items-center justify-center text-green-500 group-hover:scale-110 transition-transform">
+                                <i class="fas fa-map text-xl"></i>
+                            </div>
+                            <div class="flex-1">
+                                <h4 class="font-bold text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 transition-colors">Стратегический План (с нуля)</h4>
+                                <p class="text-xs text-slate-500">PDF Guide • 7 Months</p>
+                            </div>
+                            <i class="fas fa-external-link-alt text-slate-300 group-hover:text-indigo-500"></i>
+                        </a>
+                         <!-- Item 5 -->
+                         <a href="books/english_for_everyone_practice_book_level_1_beginner.pdf" target="_blank" class="p-5 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition flex items-center gap-4 group">
+                            <div class="w-12 h-12 rounded-lg bg-yellow-50 dark:bg-yellow-900/20 flex items-center justify-center text-yellow-500 group-hover:scale-110 transition-transform">
+                                <i class="fas fa-pencil-alt text-xl"></i>
+                            </div>
+                            <div class="flex-1">
+                                <h4 class="font-bold text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 transition-colors">Practice Book Level 1</h4>
+                                <p class="text-xs text-slate-500">Workbook</p>
+                            </div>
+                            <i class="fas fa-external-link-alt text-slate-300 group-hover:text-indigo-500"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- TESTS -->
+            <div id="view-tests" class="view-section hidden fade-in">
+                 <h2 class="text-2xl font-bold mb-6 dark:text-white">Квизы</h2>
+                 <div class="bg-white dark:bg-slate-800 p-8 rounded-xl text-center border border-slate-200 dark:border-slate-700">
+                     <div id="quiz-area">
+                         <h3 class="text-xl font-bold mb-4 dark:text-white">Готов проверить знания?</h3>
+                         <button onclick="app.startQuiz()" class="bg-indigo-600 text-white px-8 py-3 rounded-lg font-bold hover:bg-indigo-700">Начать Тест (Mix)</button>
+                     </div>
+                 </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        // ==========================================
+        // API KEY (HARDCODED)
+        // ==========================================
+        const API_KEY = "AIzaSyCHJZ18kAjT5aInDkV2vBCB2eyIM5eZknM"; 
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${API_KEY}`;
+        // ==========================================
+
+        const SEED_DATA = {
+            dictionary: [
+                // FROM "English for Everyone"
+                { w: "Schedule", t: "Расписание" },
+                { w: "Commute", t: "Поездка на работу" },
+                { w: "Grocery", t: "Продуктовый магазин" },
+                { w: "Recipe", t: "Рецепт" },
+                { w: "Headache", t: "Головная боль" },
+                { w: "Appointment", t: "Встреча / Прием" },
+                { w: "Luggage", t: "Багаж" },
+                { w: "Boarding pass", t: "Посадочный талон" },
+                { w: "Destination", t: "Пункт назначения" },
+                { w: "Sightseeing", t: "Осмотр достопримечательностей" },
+                { w: "Souvenir", t: "Сувенир" },
+                
+                // FROM "IELTS 6+" (Academic/Writing)
+                { w: "Accommodation", t: "Жилье" },
+                { w: "Environment", t: "Окружающая среда" },
+                { w: "Pollution", t: "Загрязнение" },
+                { w: "Global warming", t: "Глобальное потепление" },
+                { w: "Advantage", t: "Преимущество" },
+                { w: "Disadvantage", t: "Недостаток" },
+                { w: "Solution", t: "Решение" },
+                { w: "Significant", t: "Значительный" },
+                { w: "Fluctuate", t: "Колебаться (графики)" },
+                { w: "Steep", t: "Резкий (спад/рост)" },
+                { w: "Gradual", t: "Постепенный" },
+                { w: "Plateau", t: "Стабилизация (графики)" },
+                { w: "Inevitably", t: "Неизбежно" },
+                { w: "Consequently", t: "Вследствие этого" },
+                { w: "Furthermore", t: "Более того" },
+                { w: "However", t: "Однако" },
+                { w: "Whereas", t: "В то время как" },
+                { w: "Crucial", t: "Ключевой / Критический" },
+                { w: "Beneficial", t: "Полезный" },
+                { w: "Detrimental", t: "Вредный" },
+                
+                // Common Verbs & Nouns
+                { w: "Purchase", t: "Покупать / Покупка" },
+                { w: "Opportunity", t: "Возможность" },
+                { w: "Consume", t: "Потреблять" },
+                { w: "Consumer", t: "Потребитель" },
+                { w: "Participate", t: "Участвовать" },
+                { w: "Require", t: "Требовать" },
+                { w: "Strategy", t: "Стратегия" },
+                { w: "Method", t: "Метод" },
+                { w: "Impact", t: "Влияние / Воздействие" },
+                { w: "Effect", t: "Эффект" }
+            ],
+            plan: [
+                {
+                    title: "Месяц 1: Фундамент (A0-A1)",
+                    tasks: [
+                        { text: "EfE L1: Unit 1-3 (Introductions)", done: true },
+                        { text: "EfE L1: Unit 4-7 (Work & Routine)", done: true },
+                        { text: "Grammar: Present Simple (To Be)", done: false },
+                        { text: "Vocab: Family & Jobs (50 words)", done: false },
+                        { text: "Listening: VOA Learning English (Daily)", done: false }
+                    ]
+                },
+                {
+                    title: "Месяц 2: Разгон (A1-A2)",
+                    tasks: [
+                        { text: "EfE L2: Unit 1-5 (Food & Travel)", done: false },
+                        { text: "Grammar: Past Simple vs Continuous", done: false },
+                        { text: "Writing: Simple Emails (50 words)", done: false },
+                        { text: "Speaking: Запись на диктофон (1 мин)", done: false }
+                    ]
+                },
+                {
+                    title: "Месяц 3: Pre-Intermediate (A2-B1)",
+                    tasks: [
+                        { text: "EfE L2: Health & Body Vocab", done: false },
+                        { text: "Grammar: Present Perfect (Basics)", done: false },
+                        { text: "Reading: Адаптированные книги A2", done: false },
+                        { text: "Writing: Linking words (and, but, so)", done: false }
+                    ]
+                },
+                {
+                    title: "Месяц 4: Введение в IELTS",
+                    tasks: [
+                        { text: "IELTS 6+: Unit 1 (Academic Word List)", done: false },
+                        { text: "Writing Task 1: Graphs (Structure)", done: false },
+                        { text: "Speaking Part 1: Common Topics", done: false },
+                        { text: "Grammar: Comparatives & Superlatives", done: false }
+                    ]
+                },
+                {
+                    title: "Месяц 5: Deep Dive (B1-B2)",
+                    tasks: [
+                        { text: "Writing Task 2: Opinion Essay", done: false },
+                        { text: "Grammar: Conditionals (2 & 3)", done: false },
+                        { text: "Listening: Full Section 1 & 2", done: false },
+                        { text: "Vocab: Education & Environment", done: false }
+                    ]
+                },
+                {
+                    title: "Месяц 6: Advanced Practice",
+                    tasks: [
+                        { text: "Reading: Skimming & Scanning", done: false },
+                        { text: "Speaking Part 2: 2-min Monologue", done: false },
+                        { text: "Writing: Complex Sentences", done: false },
+                        { text: "Vocab: Technology & Society", done: false }
+                    ]
+                },
+                {
+                    title: "Месяц 7: Mock Exams",
+                    tasks: [
+                        { text: "Full Mock Exam 1 (Time limit)", done: false },
+                        { text: "Full Mock Exam 2", done: false },
+                        { text: "Анализ ошибок (Error Log)", done: false },
+                        { text: "Speaking Part 3 Practice", done: false }
+                    ]
+                }
+            ]
+        };
+
+        const App = {
+            state: { plan: [], dictionary: [], theme: 'light' },
+            flashcardDeck: [],
+            currentCard: null,
+            
+            init() {
+                // 1. Load State
+                const stored = localStorage.getItem('ielts_v5_data');
+                if (stored) {
+                    this.state = JSON.parse(stored);
+                    // Auto-merge logic for seed data
+                    const existingWords = new Set(this.state.dictionary.map(i => i.w.toLowerCase()));
+                    SEED_DATA.dictionary.forEach(item => {
+                        if(!existingWords.has(item.w.toLowerCase())) {
+                            this.state.dictionary.push(item);
+                        }
+                    });
+                } else {
+                    this.state = { ...SEED_DATA, theme: 'light' };
+                    this.save();
+                }
+
+                // 2. Render
+                this.applyTheme();
+                this.nav('dashboard');
+                this.renderDict();
+                this.renderPlan();
+                this.updateStats();
+                this.initFlashcards();
+            },
+
+            save() {
+                localStorage.setItem('ielts_v5_data', JSON.stringify(this.state));
+                this.updateStats();
+            },
+
+            // UI Navigation
+            nav(view) {
+                document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
+                document.getElementById('view-' + view).classList.remove('hidden');
+                
+                // Sidebar active state
+                document.querySelectorAll('.nav-btn').forEach(btn => {
+                    const onclick = btn.getAttribute('onclick');
+                    if(onclick && onclick.includes(view)) {
+                        btn.classList.add('bg-indigo-50', 'text-indigo-700', 'dark:bg-slate-700', 'dark:text-indigo-300');
+                    } else {
+                        btn.classList.remove('bg-indigo-50', 'text-indigo-700', 'dark:bg-slate-700', 'dark:text-indigo-300');
+                    }
+                });
+                
+                if(view === 'flashcards') this.initFlashcards();
+            },
+
+            toggleTheme() {
+                this.state.theme = this.state.theme === 'light' ? 'dark' : 'light';
+                this.applyTheme();
+                this.save();
+            },
+
+            applyTheme() {
+                if (this.state.theme === 'dark') document.documentElement.classList.add('dark');
+                else document.documentElement.classList.remove('dark');
+            },
+
+            // --- FLASHCARDS GAME ---
+            initFlashcards() {
+                // Create a shuffled copy of the dictionary for the session
+                this.flashcardDeck = [...this.state.dictionary].sort(() => Math.random() - 0.5);
+                this.loadNextFlashcard();
+            },
+            
+            loadNextFlashcard() {
+                const cardEl = document.getElementById('flashcard');
+                const frontEl = document.getElementById('card-front');
+                const backEl = document.getElementById('card-back');
+                const counterEl = document.getElementById('cards-left');
+
+                if (this.flashcardDeck.length === 0) {
+                    frontEl.textContent = "Все выучено!";
+                    backEl.textContent = "Молодец!";
+                    counterEl.textContent = "0";
+                    cardEl.classList.remove('is-flipped');
+                    return;
+                }
+
+                this.currentCard = this.flashcardDeck[0];
+                cardEl.classList.remove('is-flipped');
+                
+                // Small delay to allow flip back animation before changing text
+                setTimeout(() => {
+                    frontEl.textContent = this.currentCard.w;
+                    backEl.textContent = this.currentCard.t;
+                    counterEl.textContent = this.flashcardDeck.length;
+                }, 200);
+            },
+
+            flipCard() {
+                document.getElementById('flashcard').classList.toggle('is-flipped');
+            },
+
+            nextCard(known) {
+                if (this.flashcardDeck.length === 0) return;
+
+                // If known, remove from deck. If not, put at bottom.
+                if (known) {
+                    this.flashcardDeck.shift();
+                } else {
+                    const card = this.flashcardDeck.shift();
+                    this.flashcardDeck.push(card);
+                }
+                this.loadNextFlashcard();
+            },
+
+            // --- DICTIONARY ---
+            renderDict() {
+                const grid = document.getElementById('dict-grid');
+                if(!grid) return;
+                
+                grid.innerHTML = this.state.dictionary.map((item, idx) => `
+                    <div class="bg-white dark:bg-slate-800 p-5 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-indigo-500 dark:hover:border-indigo-500 hover:shadow-md transition group relative">
+                        <div class="font-black text-lg text-slate-800 dark:text-white mb-1">${item.w}</div>
+                        <div class="text-sm text-slate-500 dark:text-slate-400 font-medium">${item.t}</div>
+                        <button onclick="app.delWord(${idx})" class="absolute top-4 right-4 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                `).join('');
+                
+                document.getElementById('sidebar-word-count').innerText = this.state.dictionary.length;
+            },
+
+            addWord() {
+                const input = document.getElementById('word-input');
+                const val = input.value.trim();
+                if(!val) return;
+                
+                let [w, t] = val.includes('-') ? val.split('-') : [val, '???'];
+                this.state.dictionary.unshift({ w: w.trim(), t: t.trim() });
+                this.save();
+                this.renderDict();
+                input.value = '';
+            },
+
+            delWord(idx) {
+                this.state.dictionary.splice(idx, 1);
+                this.save();
+                this.renderDict();
+            },
+
+            // --- PLAN ---
+            renderPlan() {
+                const list = document.getElementById('topics-list');
+                if(!list) return;
+                
+                list.innerHTML = this.state.plan.map((m, mi) => `
+                    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden mb-4">
+                        <div class="px-6 py-4 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
+                            <h3 class="font-bold text-indigo-600 dark:text-indigo-400">${m.title}</h3>
+                            <div class="text-xs font-bold text-slate-400">${m.tasks.filter(t=>t.done).length}/${m.tasks.length}</div>
+                        </div>
+                        <div class="p-4 space-y-2">
+                            ${m.tasks.map((t, ti) => `
+                                <div onclick="app.toggleTask(${mi}, ${ti})" class="group flex items-center gap-3 p-2 rounded-lg cursor-pointer hover:bg-indigo-50 dark:hover:bg-slate-700 transition select-none">
+                                    <div class="w-6 h-6 rounded-md border-2 ${t.done ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300 dark:border-slate-600'} flex items-center justify-center text-white text-xs transition-colors">
+                                        ${t.done ? '<i class="fas fa-check"></i>' : ''}
+                                    </div>
+                                    <span class="flex-1 text-sm font-medium ${t.done ? 'text-slate-400 line-through decoration-slate-400' : 'text-slate-700 dark:text-slate-200'} transition-colors">
+                                        ${t.text}
+                                    </span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `).join('');
+            },
+
+            toggleTask(mi, ti) {
+                this.state.plan[mi].tasks[ti].done = !this.state.plan[mi].tasks[ti].done;
+                this.save();
+                this.renderPlan();
+            },
+
+            // --- STATS & CHART ---
+            updateStats() {
+                document.getElementById('stat-words').innerText = this.state.dictionary.length;
+                
+                const ctx = document.getElementById('mainChart');
+                if(!ctx) return;
+
+                const dataPoints = this.state.plan.map(m => {
+                    const total = m.tasks.length;
+                    const done = m.tasks.filter(t => t.done).length;
+                    return total === 0 ? 0 : Math.round((done / total) * 100);
+                });
+
+                if(window.myChart) window.myChart.destroy();
+                
+                window.myChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: ['M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7'],
+                        datasets: [{
+                            label: 'Прогресс (%)',
+                            data: dataPoints,
+                            borderColor: '#4f46e5',
+                            backgroundColor: (context) => {
+                                const ctx = context.chart.ctx;
+                                const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+                                gradient.addColorStop(0, 'rgba(79, 70, 229, 0.3)');
+                                gradient.addColorStop(1, 'rgba(79, 70, 229, 0.0)');
+                                return gradient;
+                            },
+                            fill: true,
+                            tension: 0.4,
+                            pointBackgroundColor: '#ffffff',
+                            pointBorderColor: '#4f46e5',
+                            pointBorderWidth: 2,
+                            pointRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: { beginAtZero: true, max: 100, grid: { color: '#e2e8f0', drawBorder: false } },
+                            x: { grid: { display: false } }
+                        },
+                        plugins: { legend: { display: false } }
+                    }
+                });
+            },
+
+            // --- CHAT (HARDCODED API) ---
+            async sendMessage() {
+                const input = document.getElementById('chat-input');
+                const text = input.value.trim();
+                if(!text) return;
+
+                // 1. UI User
+                const history = document.getElementById('chat-history');
+                history.innerHTML += `<div class="chat-bubble user fade-in">${text}</div>`;
+                input.value = '';
+                history.scrollTop = history.scrollHeight;
+
+                // 2. UI Loading
+                const loaderId = 'load-' + Date.now();
+                history.innerHTML += `<div id="${loaderId}" class="chat-bubble ai loading-dots fade-in">Thinking</div>`;
+                history.scrollTop = history.scrollHeight;
+
+                // 3. Fetch
+                try {
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{ parts: [{ text: text }] }],
+                            systemInstruction: { 
+                                parts: [{ text: "Ты опытный учитель IELTS и коллега (айтишник). Отвечай кратко, по делу, используй Markdown. Твоя цель - помочь ученику достичь Band 6.0+. Если спрашивают про музыку или гитару - поддерживай тему, но возвращай к английскому." }] 
+                            }
+                        })
+                    });
+
+                    if (!response.ok) throw new Error("API Error");
+
+                    const data = await response.json();
+                    const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text || "No response.";
+                    
+                    document.getElementById(loaderId).remove();
+                    
+                    // Simple Markdown Formatter
+                    const fmtText = aiText
+                        .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
+                        .replace(/\n/g, '<br>');
+
+                    history.innerHTML += `<div class="chat-bubble ai fade-in">${fmtText}</div>`;
+
+                } catch (e) {
+                    document.getElementById(loaderId).innerHTML = "API Error. Check console.";
+                    console.error(e);
+                }
+                history.scrollTop = history.scrollHeight;
+            },
+
+            clearChat() {
+                if(confirm("Очистить историю чата?")) {
+                    document.getElementById('chat-history').innerHTML = `
+                        <div class="chat-bubble ai shadow-sm">Чат очищен. Готов к работе.</div>
+                    `;
+                }
+            },
+
+            // --- QUIZ ---
+            startQuiz() {
+                const content = document.getElementById('quiz-area');
+                const wordObj = this.state.dictionary[Math.floor(Math.random() * this.state.dictionary.length)];
+                
+                content.innerHTML = `
+                    <div class="fade-in">
+                        <div class="text-xs uppercase font-bold text-slate-400 mb-6">Translate to Russian</div>
+                        <h2 class="text-4xl font-black text-indigo-600 dark:text-white mb-8">${wordObj.w}</h2>
+                        
+                        <div class="bg-slate-50 dark:bg-slate-900 p-6 rounded-xl mb-6 hidden" id="quiz-answer">
+                            <p class="text-xl font-bold dark:text-white">${wordObj.t}</p>
+                        </div>
+
+                        <button onclick="document.getElementById('quiz-answer').classList.remove('hidden')" class="w-full bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-white py-3 rounded-xl font-bold hover:bg-slate-50 dark:hover:bg-slate-600 mb-3">
+                            Показать ответ
+                        </button>
+                        <button onclick="app.startQuiz()" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700">
+                            Следующее слово
+                        </button>
+                    </div>
+                `;
+            }
+        };
+
+        // Expose App globally
+        window.app = App;
+        
+        // Init
+        document.addEventListener('DOMContentLoaded', () => App.init());
+
+    </script>
+</body>
+</html>
